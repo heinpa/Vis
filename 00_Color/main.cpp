@@ -11,11 +11,54 @@ public:
   MyGLApp() : GLApp{800,800,1,"Color Picker"} {}
   
   Vec3 convertPosFromHSVToRGB(float x, float y) {
-    // TODO:
-    // enter code here that interprets the mouse's
-    // x, y position as H ans S (I suggest to set
-    // V to 1.0) and converts that tripple to RGB
-    return Vec3{x,y,1.0f};
+    float hue = x*360;
+    float saturation = y;
+    float value = 1.0f;
+    float red, green, blue;
+    // find chroma
+    float chroma = value * saturation;
+    // find a point along the bottom 3 faces of the RGB cube with same hue and chroma
+    float huePrime = fmod(hue / 60.0, 6);
+    // calculate the second largest component of the colour
+    float secondary = chroma * (1 - fabs(fmod(huePrime, 2) - 1));
+
+    if(0 <= huePrime && huePrime < 1) {
+      red = chroma;
+      green = secondary;
+      blue = 0;
+    } else if(1 <= huePrime && huePrime < 2) {
+      red = secondary;
+      green = chroma;
+      blue = 0;
+    } else if(2 <= huePrime && huePrime < 3) {
+      red = 0;
+      green = chroma;
+      blue = secondary;
+    } else if(3 <= huePrime && huePrime < 4) {
+      red = 0;
+      green = secondary;
+      blue = chroma;
+    } else if(4 <= huePrime && huePrime < 5) {
+      red = secondary;
+      green = 0;
+      blue = chroma;
+    } else if(5 <= huePrime && huePrime < 6) {
+      red = chroma;
+      green = 0;
+      blue = secondary;
+    } else {
+      red = 0;
+      green = 0;
+      blue = 0;
+    }
+
+    // adjust final RGB results to match value
+    float m = value - chroma;
+    red += m;
+    green += m;
+    blue += m;
+
+    return Vec3{red,green,blue};
   }
   
   virtual void init() override {
