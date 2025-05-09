@@ -1,5 +1,6 @@
 #include <GLApp.h>
 #include <Grid2D.h>
+#include <FontRenderer.h>
 
 class GLIPApp : public GLApp {
 public:
@@ -8,7 +9,7 @@ public:
   std::shared_ptr<Grid2D> next = std::make_shared<Grid2D>(512,512);
   Image image{512,512,3};
   
-  const float c = 2.0f;
+  const float c = 4.0f;
   const float dx = 1.0f;
   const float dt = 0.05f;
   const float alpha = (c*c*dt*dt) / (dx*dx);
@@ -32,8 +33,7 @@ public:
         const float center = current->getValue(x,y);
         const float past   = last->getValue(x,y);
 
-        // TODO: add computation of explicit shallow water equation here
-        const float v = 0;        
+        const float v = alpha * (left + right + top + bottom) + (2 - 4 * alpha) * center - past;
         
         next->setValue(x,y,v);
         image.setValue(uint32_t(x),uint32_t(y),0, v > 0 ? uint8_t(v*500) : 0);
