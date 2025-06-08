@@ -1,6 +1,4 @@
-#include<algorithm>
 #include <cstdint>
-#include <iostream>
 
 #include "MS.h"
 #include "MS.inl"
@@ -8,26 +6,24 @@
 #include "Vec3.h"
 
 
-// TODO: solve offset on edges
-// TODO: check float conversion -> better to do at different spot?
-
-
 bool asymptoticDeciderBelowIso(Vec3 p1, Vec3 p2, Vec3 p3, Vec3 p4, uint8_t v) {
-    float isovalue = float(v)/255;
+    float isovalue = static_cast<float>(v);
     float f = (p1.z * p3.z - p2.z * p4.z) / (p3.z + p1.z - p2.z - p4.z);
     return (f < isovalue);
 }
 
-Vec2 findIsolineIntersect(Vec3 p1, Vec3 p2, uint8_t v) {
-    float isovalue = float(v)/255;
+Vec2 findIsolineIntersect(Vec3 p1, Vec3 p2, uint8_t isovalue) {
+    // interpolate between two points, along either x or y axis.
+    // return the point where the verex value == isovalue as isoline intersection.
+    float v = static_cast<float>(isovalue);
     Vec2 result{};
     if(p1.x == p2.x) {
         // vertical
-        float y = p1.y + (isovalue - p1.z) * (p2.y - p1.y) / (p2.z - p1.z);
+        float y = p1.y + (v - p1.z) * (p2.y - p1.y) / (p2.z - p1.z);
         result = {p1.x, y};
     } else if (p1.y == p2.y) {
         // horizontal
-        float x = p1.x + (isovalue - p1.z) * (p2.x - p1.x) / (p2.z - p1.z);
+        float x = p1.x + (v - p1.z) * (p2.x - p1.x) / (p2.z - p1.z);
         result = {x, p1.y};
     }
     return result;
@@ -36,40 +32,39 @@ Vec2 findIsolineIntersect(Vec3 p1, Vec3 p2, uint8_t v) {
 Isoline::Isoline(const Image& image, uint8_t isovalue,
                  bool useAsymptoticDecider) {
 
-    Vec2 resolution = {1,1};
-    uint32_t rows = image.height / resolution.x;
-    uint32_t cols = image.width / resolution.y;
+    Vec2ui step_size = {1,1};
+    uint32_t rows = image.height / step_size.x;
+    uint32_t cols = image.width / step_size.y;
 
-    for(uint32_t i=0; i<rows; i++) { 
+    for(uint32_t i=0; i<rows; i++) {
     for(uint32_t j=0; j<cols; j++) {
-        float x = i * resolution.x;
-        float y = j * resolution.y;
+        uint32_t x = i * step_size.x;
+        uint32_t y = j * step_size.y;
 
-        float h = float(image.height)/2;
-        float w = float(image.width)/2;
+        // convert positon to float [-1,1] for drawLines() function
+        float h = static_cast<float>(image.height)/2;
+        float w = static_cast<float>(image.width)/2;
+        Vec2 ul = {(x-h)/h, (y-w)/w};                           // upper left
+        Vec2 ur = {(x-h)/h, (y+step_size.y-w)/w};               // upper right
+        Vec2 lr = {(x+step_size.x-h)/h, (y+step_size.y-w)/w};   // lower right
+        Vec2 ll = {(x+step_size.x-h)/h, (y-w)/w};               // lower left
 
-        Vec2 a = {(x-h)/h, (y-w)/w};
-        Vec2 b = {(x-h)/h, (y+resolution.y-w)/w};
-        Vec2 c = {(x+resolution.x-h)/h, (y+resolution.y-w)/w};
-        Vec2 d = {(x+resolution.x-h)/h, (y-w)/w};
+        // corner points (x positon, y positon, value)
+        Vec3 p1 = {ul.x, ul.y, static_cast<float>(image.getLumiValue(x, y))};
+        Vec3 p2 = {ur.x, ur.y, static_cast<float>(image.getLumiValue(x, y+step_size.y))};
+        Vec3 p3 = {lr.x, lr.y, static_cast<float>(image.getLumiValue(x+step_size.x, y+step_size.y))};
+        Vec3 p4 = {ll.x, ll.y, static_cast<float>(image.getLumiValue(x+step_size.x, y))};
 
-        // determine the case, based on the scalar vertex values compared to the isovalue
-        Vec3 p1 = {a.x, a.y, float(image.getLumiValue(x, y))/255};
-        Vec3 p2 = {b.x, b.y, float(image.getLumiValue(x, y+resolution.y))/255};
-        Vec3 p3 = {c.x, c.y, float(image.getLumiValue(x+resolution.x, y+resolution.y))/255};
-        Vec3 p4 = {d.x, d.y, float(image.getLumiValue(x+resolution.x, y))/255};
-
-        // corner values (vertices)
+        // determine the configuration, based on the corner values
         uint8_t c1, c2, c3, c4;
+        if(p1.z >= static_cast<float>(isovalue)) {c1 = 0;} else {c1 = 1;}
+        if(p2.z >= static_cast<float>(isovalue)) {c2 = 0;} else {c2 = 1;}
+        if(p3.z >= static_cast<float>(isovalue)) {c3 = 0;} else {c3 = 1;}
+        if(p4.z >= static_cast<float>(isovalue)) {c4 = 0;} else {c4 = 1;}
+        uint8_t configuration = 8 * c1 + 4 * c2 + 2 * c3 + c4;
 
-        if(p1.z >= float(isovalue)/255) {c1 = 0;} else {c1 = 1;}
-        if(p2.z >= float(isovalue)/255) {c2 = 0;} else {c2 = 1;}
-        if(p3.z >= float(isovalue)/255) {c3 = 0;} else {c3 = 1;}
-        if(p4.z >= float(isovalue)/255) {c4 = 0;} else {c4 = 1;}
-
-        uint8_t state;
-        state = 8 * c1 + 4 * c2 + 2 * c3 + c4;
-        switch (state) {
+        // add isoline points depending on configuraion
+        switch (configuration) {
            case 1:
                vertices.push_back(findIsolineIntersect(p3, p4, isovalue));
                vertices.push_back(findIsolineIntersect(p4, p1, isovalue));
@@ -147,13 +142,6 @@ Isoline::Isoline(const Image& image, uint8_t isovalue,
            default:
                break;
         }
-
-        // depending on the case, interpolate along the relevant edges to find isoline points
-        // x = x_i + (y - y_i) * (x_j - x_i) / (y_j - y_i)
-        // for y = isovalue
-
-        // for ambigious cases, use decider for decision in which order to append vertices 
-        // (i.e. what set of lines to draw)
     }
     }
 }
