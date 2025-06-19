@@ -30,7 +30,7 @@ bool inBounds(vec3 pos) {
 }
 
 void main() {
-  // compute vector to camera in texture space  
+  // compute vector to camera in texture space
   vec3 rayDirectionInTextureSpace = normalize(entryPoint-cameraPosInTextureSpace);
 
   // compute delta
@@ -41,12 +41,13 @@ void main() {
   vec3 currentPoint = entryPoint;
   result = vec4(0.0);
   do {
-    // TODO: Implement raycaster and store the result in "result".
-    //       The next two lines are placeholder code ensuring all
-    //       variables are utilized. This prevents exceptions from
-    //       the initial shader. These placeholder lines should be
-    //       replaced by the raycasting code.
-    result = 1+transferFunction(texture(volume,delta).r);
-    break;
+    // update result vector
+    result = under(transferFunction(texture(volume, currentPoint).r), result);
+    // early ray termination
+    if (result.a > 0.95) {
+        break;
+    }
+    // calculate next point
+    currentPoint += delta;
   } while (inBounds(currentPoint));
 }
